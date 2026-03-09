@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/kopere_wpbridge/db" VERSION="2026030900" COMMENT="XMLDB file for local_kopere_wpbridge"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
+    <TABLES>
+        <TABLE NAME="local_kopere_wpbridge_map" COMMENT="WooCommerce product mapping to Moodle courses or cohorts">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+                <FIELD NAME="productid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="itemtype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="course" SEQUENCE="false"/>
+                <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="cohortid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="roleid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="5" SEQUENCE="false"/>
+                <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="productid-itemtype" UNIQUE="false" FIELDS="productid, itemtype"/>
+                <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+                <INDEX NAME="cohortid" UNIQUE="false" FIELDS="cohortid"/>
+            </INDEXES>
+        </TABLE>
+
+        <TABLE NAME="local_kopere_wpbridge_order" COMMENT="Orders mirrored from WooCommerce">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+                <FIELD NAME="externalid" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="status" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="pending" SEQUENCE="false"/>
+                <FIELD NAME="source" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="task" SEQUENCE="false"/>
+                <FIELD NAME="email" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="firstname" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="lastname" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="currency" TYPE="char" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="total" TYPE="char" LENGTH="32" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="payload" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="externalid" UNIQUE="true" FIELDS="externalid"/>
+                <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+            </INDEXES>
+        </TABLE>
+
+        <TABLE NAME="local_kopere_wpbridge_item" COMMENT="Order items mirrored from WooCommerce">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+                <FIELD NAME="orderid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="externalitemid" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="externalorderid" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="productid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="productname" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="quantity" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+                <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pending" SEQUENCE="false"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="message" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="payload" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="orderid_fk" TYPE="foreign" FIELDS="orderid" REFTABLE="local_kopere_wpbridge_order"
+                     REFFIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="externalitemid" UNIQUE="true" FIELDS="externalitemid"/>
+                <INDEX NAME="productid-status" UNIQUE="false" FIELDS="productid, status"/>
+                <INDEX NAME="externalorderid" UNIQUE="false" FIELDS="externalorderid"/>
+            </INDEXES>
+        </TABLE>
+    </TABLES>
+</XMLDB>

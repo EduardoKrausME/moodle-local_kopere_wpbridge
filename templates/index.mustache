@@ -1,0 +1,95 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_kopere_wpbridge/index
+
+    Example context (json):
+    {
+        "title": "WP Bridge Dashboard",
+        "subtitle": "Monitor mappings and webhook processing status.",
+        "mappingcount": 12,
+        "pendingcount": 3,
+        "processedcount": 154,
+        "webhookurl": "http://example.com/local/kopere_wpbridge/webhook.php",
+        "connectionmessage": "Last webhook received successfully.",
+        "canmanage": true,
+        "mappingsurl": "http://example.com/local/kopere_wpbridge/mappings.php",
+        "settingsurl": "http://example.com/admin/settings.php?section=local_kopere_wpbridge"
+    }
+}}
+<div class="container-fluid py-3">
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h3 class="mb-1">{{title}}</h3>
+                    <p class="text-muted mb-0">{{subtitle}}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="small text-muted mb-2">{{#str}}
+                        dashboard_mappingcount, local_kopere_wpbridge{{/str}}</div>
+                    <div class="display-6">{{mappingcount}}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="small text-muted mb-2">{{#str}}
+                        dashboard_pendingcount, local_kopere_wpbridge{{/str}}</div>
+                    <div class="display-6">{{pendingcount}}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="small text-muted mb-2">{{#str}}
+                        dashboard_processedcount, local_kopere_wpbridge{{/str}}</div>
+                    <div class="display-6">{{processedcount}}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-12">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="mb-3">{{#str}}dashboard_laststatus, local_kopere_wpbridge{{/str}}</h5>
+                    <div class="small text-muted">{{connectionmessage}}</div>
+                </div>
+            </div>
+        </div>
+
+        {{#canmanage}}
+            <div class="col-12">
+                <div class="d-flex gap-2">
+                    <a href="{{{mappingsurl}}}" class="btn btn-primary">{{#str}}
+                        dashboard_openui, local_kopere_wpbridge{{/str}}</a>
+                    <a href="{{{settingsurl}}}" class="btn btn-outline-secondary">{{#str}}
+                        dashboard_settings, local_kopere_wpbridge{{/str}}</a>
+                </div>
+            </div>
+        {{/canmanage}}
+    </div>
+</div>

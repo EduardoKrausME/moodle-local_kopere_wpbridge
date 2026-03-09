@@ -1,0 +1,38 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_kopere_wpbridge/editmapping
+
+    Example context (json):
+    {
+        "title": "Edit Mapping",
+        "backurl": "http://example.com/local/kopere_wpbridge/mappings.php",
+        "form": "<form><input type='text' name='mappingname' value='Student Mapping'></form>"
+    }
+}}
+<div class="container-fluid py-3">
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">{{title}}</h3>
+                <a href="{{{backurl}}}" class="btn btn-outline-secondary">{{#str}}
+                    back, local_kopere_wpbridge{{/str}}</a>
+            </div>
+            {{{form}}}
+        </div>
+    </div>
+</div>
