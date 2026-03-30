@@ -37,6 +37,7 @@ use core_privacy\local\request\writer;
 use stdClass;
 
 /**
+ * phpcs:disable Universal.OOStructures.AlphabeticExtendsImplements.ImplementsWrongOrder
  * Privacy API provider for local_kopere_wpbridge.
  */
 class provider implements
