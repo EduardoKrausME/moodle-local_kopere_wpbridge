@@ -1,0 +1,21 @@
+# (RFC §4.1). Authors update their listing with an ordinary commit; camp
+# ingests and hash-pins it at each tagged release. Listing for local_kopere_wpbridge.
+
+name: "Kopere WP Bridge"
+summary: "Connect the platform to WordPress and simplify workflows between the systems."
+description: |
+  Connect the platform to WordPress and simplify workflows between the systems.
+
+  Key capabilities:
+  - Map WooCommerce product IDs to Moodle courses
+  - Map WooCommerce product IDs to Moodle cohorts
+  - Receive order webhooks with token validation
+
+  Supported Moodle versions in the supplied plugin list: 3.9 - 5.0.
+
+labels:
+  - fully-free
+category: "integrations"
+links:
+  docs: https://github.com/EduardoKrausME/moodle-local_kopere_wpbridge#readme
+  issues: https://github.com/EduardoKrausME/moodle-local_kopere_wpbridge/issues
