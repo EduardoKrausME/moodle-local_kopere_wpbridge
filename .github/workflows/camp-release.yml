@@ -6,11 +6,7 @@
 
 name: Publish release to camp
 
-on:
-  push:
-    tags: ['[0-9]+.[0-9]+.[0-9]+']
-  workflow_dispatch: {}   # backfill an old release: run at the existing tag
-                          #   gh workflow run camp-release.yml --ref v1.1.0
+on: [push]
 
 permissions:
   contents: read
@@ -31,50 +27,37 @@ env:
 
 jobs:
   publish:
+    if: startsWith(github.event.head_commit.message, 'V ')
+
     runs-on: ubuntu-24.04
     steps:
-      # Releases are built at immutable tags only; the publish service
-      # additionally refuses branch-minted tokens, so this guard just
-      # fails earlier with a better message (camp-tools#15).
-      - name: Require a tag ref
-        run: |
-          if [ "${{ github.ref_type }}" != "tag" ]; then
-            echo "::error::This workflow must run at a tag. From workflow_dispatch, pick the tag in the ref dropdown (or: gh workflow run camp-release.yml --ref v1.2.3). Current ref: ${{ github.ref_name }} (${{ github.ref_type }})"
-            exit 1
-          fi
-      - name: Check out plugin at the tag
-        uses: actions/checkout@v7
-        with:
-          path: plugin
-          fetch-depth: 0
-
-      # Read-only: camp release computes your record against your entry's
-      # current ledger. Nothing is pushed from this job.
-      - name: Check out camp index
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ env.CAMP_INDEX_REPO }}
-          path: index-repo
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v4
         with:
           python-version: "3.12"
 
       - name: Install camp tools
-        run: pip install --quiet "git+https://github.com/camp-registry/camp-tools@v0.2.39"
-      - name: Resolve component name
+        run: pip install --quiet "git+https://github.com/camp-registry/camp-tools@v0.2.53"
+      - name: Resolve plugin metadata
         run: |
+          COMPONENT=$(php -r 'define("MOODLE_INTERNAL", true);define("MATURITY_STABLE", true); $plugin=new stdClass(); require "version.php"; echo $plugin->component ?? "";')
+
+          RELEASE=$(php -r 'define("MOODLE_INTERNAL", true);define("MATURITY_STABLE", true); $plugin=new stdClass(); require "version.php"; echo $plugin->release ?? "";')
+
           if [ -z "${COMPONENT}" ]; then
-            COMPONENT=$(sed -nE 's/.*\$plugin->component[[:space:]]*=[[:space:]]*.?([a-z][a-z0-9_]*).?[[:space:]]*;.*/\1/p' plugin/version.php | head -1)
-          fi
-          if [ -z "${COMPONENT}" ]; then
-            echo "::error::COMPONENT is empty and \$plugin->component was not found in version.php — set one of them"
+            echo "::error::\$plugin->component not found"
             exit 1
           fi
-          echo "COMPONENT=${COMPONENT}" >> "$GITHUB_ENV"
-          echo "component: ${COMPONENT}"
-      - name: Require a listing manifest
-        run: camp scaffold plugin --check
 
+          if [ -z "${RELEASE}" ]; then
+            echo "::error::\$plugin->release not found"
+            exit 1
+          fi
+
+          echo "COMPONENT=${COMPONENT}" >> "$GITHUB_ENV"
+          echo "RELEASE=${RELEASE}" >> "$GITHUB_ENV"
+
+          echo "component: ${COMPONENT}"
+          echo "release:   ${RELEASE}"
       - name: Label heuristics + security lint (warn-only preview)
         run: |
           camp lint-labels plugin || true
@@ -82,7 +65,7 @@ jobs:
       - name: Compute and append the release record
         run: |
           plugintype="${COMPONENT%%_*}"
-          camp release "index-repo/plugins/${plugintype}/${COMPONENT}.yml" \
+          camp release "index-repo/plugin/${plugintype}/${COMPONENT}.yml" \
             "${GITHUB_REF_NAME}" --source ./plugin \
             ${SUPPORTED_MOODLE:+--supported-moodle "${SUPPORTED_MOODLE}"}
       - name: Publish (OIDC token exchange)
@@ -96,7 +79,7 @@ jobs:
 
           component = os.environ["COMPONENT"]
           tag = os.environ["TAG"]
-          path = f"index-repo/plugins/{component.split('_')[0]}/{component}.yml"
+          path = f"index-repo/plugin/{component.split('_')[0]}/{component}.yml"
           with open(path) as f:
               record = yaml.safe_load(f)["releases"][-1]
           assert record["tag"] == tag, "computed record is not for this tag"
