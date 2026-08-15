@@ -65,7 +65,7 @@ jobs:
       - name: Compute and append the release record
         run: |
           plugintype="${COMPONENT%%_*}"
-          camp release "index-repo/plugin/${plugintype}/${COMPONENT}.yml" \
+          camp release "plugin/${plugintype}/${COMPONENT}.yml" \
             "${GITHUB_REF_NAME}" --source ./plugin \
             ${SUPPORTED_MOODLE:+--supported-moodle "${SUPPORTED_MOODLE}"}
       - name: Publish (OIDC token exchange)
