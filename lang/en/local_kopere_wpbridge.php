@@ -65,6 +65,7 @@ $string['mapping_productid'] = 'WooCommerce product ID';
 $string['mapping_role'] = 'Role for course enrolment';
 $string['mapping_saved'] = 'Mapping saved successfully.';
 $string['mappings'] = 'Mappings';
+$string['messageprovider:syncnotification'] = 'Sync Notification';
 $string['messageprovider_syncnotification'] = 'WP Bridge notifications';
 $string['ordernotification_body'] = 'Hello {$a->firstname},
 
