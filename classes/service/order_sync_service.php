@@ -386,7 +386,16 @@ class order_sync_service {
                 $targetid
             );
 
-            if (!$hasother && $this->enrolment->revoke_grant((int) $item->userid, $grant)) {
+            if ($hasother) {
+                if (!empty($grant["accesscreated"])) {
+                    $this->orders->transfer_active_grant_ownership(
+                        (int) $item->userid,
+                        (int) $item->id,
+                        $itemtype,
+                        $targetid
+                    );
+                }
+            } else if ($this->enrolment->revoke_grant((int) $item->userid, $grant)) {
                 $revoked++;
             }
 

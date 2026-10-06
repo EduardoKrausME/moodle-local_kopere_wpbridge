@@ -257,6 +257,63 @@ class order_repository {
     }
 
     /**
+     * Transfer ownership of bridge-created access to another active purchase.
+     *
+     * This is required when order A originally created a manual enrolment, order B later reused it,
+     * and order A is refunded. Order B becomes responsible for removing the access if it is later
+     * refunded too.
+     *
+     * @param int $userid Moodle user ID.
+     * @param int $excludeitemid Item currently being revoked.
+     * @param string $itemtype course or cohort.
+     * @param int $targetid Target ID.
+     * @return bool
+     * @throws dml_exception
+     */
+    public function transfer_active_grant_ownership(
+        int $userid,
+        int $excludeitemid,
+        string $itemtype,
+        int $targetid
+    ): bool {
+        global $DB;
+
+        $sql = "SELECT i.*
+                  FROM {local_kopere_wpbridge_item} i
+                  JOIN {local_kopere_wpbridge_order} o ON o.id = i.orderid
+                 WHERE i.userid = :userid
+                   AND i.id <> :excludeitemid
+                   AND o.status = :completed
+                   AND i.status <> :removed
+                   AND i.grants IS NOT NULL
+              ORDER BY i.id ASC";
+
+        $items = $DB->get_records_sql($sql, [
+            "userid" => $userid,
+            "excludeitemid" => $excludeitemid,
+            "completed" => "completed",
+            "removed" => "removed",
+        ]);
+
+        foreach ($items as $item) {
+            $grants = $this->get_grants($item);
+            foreach ($grants as $index => $grant) {
+                if (
+                    !empty($grant["active"]) &&
+                    ($grant["itemtype"] ?? "") == $itemtype &&
+                    (int) ($grant["targetid"] ?? 0) == $targetid
+                ) {
+                    $grants[$index]["accesscreated"] = true;
+                    $this->save_grants($item->id, $grants);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Mark an item as processed.
      *
      * @param int $itemid Local item ID.
@@ -382,7 +439,7 @@ class order_repository {
             $record->id = $existing->id;
             $record->grants = $existing->grants;
 
-            if ($existing->status == "processed" || $existing->status == "ignored") {
+            if ($existing->status == "processed") {
                 $record->status = $existing->status;
                 $record->userid = $existing->userid;
                 $record->message = $existing->message;
