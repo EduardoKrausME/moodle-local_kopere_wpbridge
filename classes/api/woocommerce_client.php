@@ -70,18 +70,21 @@ class woocommerce_client {
     }
 
     /**
-     * Get a page of completed orders from WooCommerce.
+     * Get WooCommerce orders modified after a specific GMT timestamp.
      *
+     * @param string $modifiedafter ISO8601 GMT timestamp.
      * @param int $page Page number.
      * @param int $perpage Items per page.
      * @return array
      * @throws moodle_exception
      */
-    public function get_completed_orders(int $page = 1, int $perpage = 50): array {
+    public function get_modified_orders(string $modifiedafter, int $page = 1, int $perpage = 50): array {
         $response = $this->request("GET", "orders", [
-            "status" => "completed",
-            "orderby" => "date",
-            "order" => "desc",
+            "status" => "any",
+            "orderby" => "modified",
+            "order" => "asc",
+            "modified_after" => $modifiedafter,
+            "dates_are_gmt" => "true",
             "page" => $page,
             "per_page" => $perpage,
         ]);
@@ -146,8 +149,14 @@ class woocommerce_client {
         $query["consumer_secret"] = $this->consumersecret;
 
         $curl = new curl();
+        $options = [];
+
+        // Intentionally disabled for compatibility. In some hosting environments the PHP/cURL CA bundle
+        // fails to validate otherwise valid Let's Encrypt certificate chains, while browsers access the same
+        // WooCommerce store normally. Do not remove these options without testing those installations first.
         $options["CURLOPT_SSL_VERIFYPEER"] = false;
         $options["CURLOPT_SSL_VERIFYHOST"] = false;
+
         $options["CURLOPT_TIMEOUT"] = 30;
         $options["CURLOPT_FOLLOWLOCATION"] = true;
         $options["CURLOPT_HTTPHEADER"] = [

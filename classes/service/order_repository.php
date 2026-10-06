@@ -55,6 +55,7 @@ class order_repository {
 
         $record = (object) [
             "externalid" => $externalid,
+            "customerid" => (int) ($payload["customer_id"] ?? 0),
             "status" => $payload["status"] ?? "pending",
             "source" => $source,
             "email" => trim($billing["email"] ?? ""),
@@ -75,10 +76,17 @@ class order_repository {
             $localorderid = $DB->insert_record("local_kopere_wpbridge_order", $record);
         }
 
+        $receivedids = [];
         $items = $payload["line_items"] ?? [];
         foreach ($items as $item) {
+            $externalitemid = (string) ($item["id"] ?? "");
+            if ($externalitemid != "") {
+                $receivedids[] = $externalitemid;
+            }
             $this->upsert_item($localorderid, $externalid, $item);
         }
+
+        $this->mark_missing_items_removed($localorderid, $receivedids);
 
         return $DB->get_record("local_kopere_wpbridge_order", ["id" => $localorderid], "*", MUST_EXIST);
     }
@@ -107,21 +115,38 @@ class order_repository {
     public function get_open_items_for_order(int $orderid): array {
         global $DB;
 
+        $now = time();
         $sql = "SELECT *
                   FROM {local_kopere_wpbridge_item}
                  WHERE orderid = :orderid
-                   AND status IN (:pending, :error)
+                   AND (
+                        status = :pending
+                        OR (status = :error AND nextretry <= :now)
+                   )
               ORDER BY id ASC";
 
         return $DB->get_records_sql($sql, [
             "orderid" => $orderid,
             "pending" => "pending",
             "error" => "error",
+            "now" => $now,
         ]);
     }
 
     /**
-     * Return pending items joined with their orders.
+     * Return all local items for an order.
+     *
+     * @param int $orderid Local order ID.
+     * @return array
+     * @throws dml_exception
+     */
+    public function get_items_for_order(int $orderid): array {
+        global $DB;
+        return $DB->get_records("local_kopere_wpbridge_item", ["orderid" => $orderid], "id ASC");
+    }
+
+    /**
+     * Return retryable items joined with their orders.
      *
      * @param int $limit Maximum rows.
      * @return array
@@ -130,18 +155,105 @@ class order_repository {
     public function get_pending_items(int $limit = 100): array {
         global $DB;
 
+        $now = time();
         $sql = "SELECT i.*, o.email, o.firstname, o.lastname, o.status AS orderstatus
                   FROM {local_kopere_wpbridge_item} i
-                  JOIN {local_kopere_wpbridge_order} o
-                    ON o.id = i.orderid
+                  JOIN {local_kopere_wpbridge_order} o ON o.id = i.orderid
                  WHERE o.status = :completed
-                   AND i.status = :pending
+                   AND (
+                        i.status = :pending
+                        OR (i.status = :error AND i.nextretry <= :now)
+                   )
               ORDER BY i.id ASC";
 
         return $DB->get_records_sql($sql, [
             "completed" => "completed",
             "pending" => "pending",
+            "error" => "error",
+            "now" => $now,
         ], 0, $limit);
+    }
+
+    /**
+     * Decode stored grants for an item.
+     *
+     * @param stdClass $item Order item.
+     * @return array
+     */
+    public function get_grants(stdClass $item): array {
+        if (empty($item->grants)) {
+            return [];
+        }
+
+        $grants = json_decode($item->grants, true);
+        return is_array($grants) ? $grants : [];
+    }
+
+    /**
+     * Save grant state for an item.
+     *
+     * @param int $itemid Item ID.
+     * @param array $grants Grant records.
+     * @return void
+     * @throws dml_exception
+     */
+    public function save_grants(int $itemid, array $grants): void {
+        global $DB;
+
+        $DB->update_record("local_kopere_wpbridge_item", (object) [
+            "id" => $itemid,
+            "grants" => json_encode($grants, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            "timemodified" => time(),
+        ]);
+    }
+
+    /**
+     * Check if another completed order still grants the same target.
+     *
+     * @param int $userid Moodle user ID.
+     * @param int $excludeitemid Item currently being revoked.
+     * @param string $itemtype course or cohort.
+     * @param int $targetid Target ID.
+     * @return bool
+     * @throws dml_exception
+     */
+    public function has_other_active_grant(
+        int $userid,
+        int $excludeitemid,
+        string $itemtype,
+        int $targetid
+    ): bool {
+        global $DB;
+
+        $sql = "SELECT i.*
+                  FROM {local_kopere_wpbridge_item} i
+                  JOIN {local_kopere_wpbridge_order} o ON o.id = i.orderid
+                 WHERE i.userid = :userid
+                   AND i.id <> :excludeitemid
+                   AND o.status = :completed
+                   AND i.status <> :removed
+                   AND i.grants IS NOT NULL";
+
+        $items = $DB->get_records_sql($sql, [
+            "userid" => $userid,
+            "excludeitemid" => $excludeitemid,
+            "completed" => "completed",
+            "removed" => "removed",
+        ]);
+
+        foreach ($items as $item) {
+            foreach ($this->get_grants($item) as $grant) {
+                if (
+                    !empty($grant["active"]) &&
+                    ($grant["itemtype"] ?? "") == $itemtype &&
+                    (int) ($grant["targetid"] ?? 0) == $targetid
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -156,15 +268,16 @@ class order_repository {
     public function mark_processed(int $itemid, int $userid, string $message): void {
         global $DB;
 
-        $record = (object) [
+        $DB->update_record("local_kopere_wpbridge_item", (object) [
             "id" => $itemid,
             "status" => "processed",
             "userid" => $userid,
             "message" => $message,
+            "attempts" => 0,
+            "nextretry" => 0,
+            "lasterror" => null,
             "timemodified" => time(),
-        ];
-
-        $DB->update_record("local_kopere_wpbridge_item", $record);
+        ]);
     }
 
     /**
@@ -178,18 +291,35 @@ class order_repository {
     public function mark_ignored(int $itemid, string $message): void {
         global $DB;
 
-        $record = (object) [
+        $DB->update_record("local_kopere_wpbridge_item", (object) [
             "id" => $itemid,
             "status" => "ignored",
             "message" => $message,
             "timemodified" => time(),
-        ];
-
-        $DB->update_record("local_kopere_wpbridge_item", $record);
+        ]);
     }
 
     /**
-     * Mark an item as error.
+     * Mark an item as revoked.
+     *
+     * @param int $itemid Local item ID.
+     * @param string $message Result message.
+     * @return void
+     * @throws dml_exception
+     */
+    public function mark_revoked(int $itemid, string $message): void {
+        global $DB;
+
+        $DB->update_record("local_kopere_wpbridge_item", (object) [
+            "id" => $itemid,
+            "status" => "revoked",
+            "message" => $message,
+            "timemodified" => time(),
+        ]);
+    }
+
+    /**
+     * Mark an item as error and schedule an exponential-backoff retry.
      *
      * @param int $itemid Local item ID.
      * @param string $message Error message.
@@ -199,14 +329,20 @@ class order_repository {
     public function mark_error(int $itemid, string $message): void {
         global $DB;
 
-        $record = (object) [
+        $item = $DB->get_record("local_kopere_wpbridge_item", ["id" => $itemid], "id, attempts", MUST_EXIST);
+        $attempts = ((int) $item->attempts) + 1;
+        $exponent = min($attempts - 1, 8);
+        $delay = min(21600, 60 * (2 ** $exponent));
+
+        $DB->update_record("local_kopere_wpbridge_item", (object) [
             "id" => $itemid,
             "status" => "error",
             "message" => $message,
+            "attempts" => $attempts,
+            "nextretry" => time() + $delay,
+            "lasterror" => $message,
             "timemodified" => time(),
-        ];
-
-        $DB->update_record("local_kopere_wpbridge_item", $record);
+        ]);
     }
 
     /**
@@ -244,14 +380,22 @@ class order_repository {
 
         if ($existing) {
             $record->id = $existing->id;
-            if ($existing->status == "processed") {
-                $record->status = "processed";
+            $record->grants = $existing->grants;
+
+            if ($existing->status == "processed" || $existing->status == "ignored") {
+                $record->status = $existing->status;
                 $record->userid = $existing->userid;
                 $record->message = $existing->message;
+                $record->attempts = $existing->attempts;
+                $record->nextretry = $existing->nextretry;
+                $record->lasterror = $existing->lasterror;
             } else {
                 $record->status = "pending";
-                $record->userid = 0;
+                $record->userid = $existing->userid;
                 $record->message = "";
+                $record->attempts = 0;
+                $record->nextretry = 0;
+                $record->lasterror = null;
             }
 
             $DB->update_record("local_kopere_wpbridge_item", $record);
@@ -261,7 +405,41 @@ class order_repository {
         $record->status = "pending";
         $record->userid = 0;
         $record->message = "";
+        $record->attempts = 0;
+        $record->nextretry = 0;
+        $record->lasterror = null;
+        $record->grants = null;
         $record->timecreated = $now;
         $DB->insert_record("local_kopere_wpbridge_item", $record);
+    }
+
+    /**
+     * Mark order items that no longer exist in the WooCommerce payload as removed.
+     *
+     * @param int $orderid Local order ID.
+     * @param array $receivedids Current WooCommerce line item IDs.
+     * @return void
+     * @throws dml_exception
+     */
+    protected function mark_missing_items_removed(int $orderid, array $receivedids): void {
+        global $DB;
+
+        $items = $DB->get_records("local_kopere_wpbridge_item", ["orderid" => $orderid]);
+        foreach ($items as $item) {
+            if (in_array((string) $item->externalitemid, $receivedids, true)) {
+                continue;
+            }
+
+            if ($item->status == "removed") {
+                continue;
+            }
+
+            $DB->update_record("local_kopere_wpbridge_item", (object) [
+                "id" => $item->id,
+                "status" => "removed",
+                "message" => "WooCommerce line item removed from order.",
+                "timemodified" => time(),
+            ]);
+        }
     }
 }

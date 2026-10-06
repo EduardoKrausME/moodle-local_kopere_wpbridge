@@ -73,6 +73,9 @@ class mapping_repository {
     /**
      * Save or update a mapping.
      *
+     * Adding or changing an enabled mapping queues previous completed purchases for additive
+     * reconciliation. Removing or disabling a mapping never removes an existing Moodle enrolment.
+     *
      * @param stdClass $record Mapping record.
      * @return int
      * @throws dml_exception
@@ -85,15 +88,23 @@ class mapping_repository {
 
         if (!empty($record->id)) {
             $DB->update_record("local_kopere_wpbridge_map", $record);
-            return $record->id;
+            $id = (int) $record->id;
+        } else {
+            $record->timecreated = $now;
+            $id = (int) $DB->insert_record("local_kopere_wpbridge_map", $record);
         }
 
-        $record->timecreated = $now;
-        return $DB->insert_record("local_kopere_wpbridge_map", $record);
+        if (!empty($record->enabled)) {
+            $this->queue_product_reconciliation((int) $record->productid);
+        }
+
+        return $id;
     }
 
     /**
      * Delete a mapping.
+     *
+     * Existing Moodle access is intentionally left untouched.
      *
      * @param int $id Mapping ID.
      * @return void
@@ -117,6 +128,37 @@ class mapping_repository {
         return $DB->get_records("local_kopere_wpbridge_map", [
             "productid" => $productid,
             "enabled" => 1,
+        ]);
+    }
+
+    /**
+     * Queue completed purchases of a product so newly added mappings are applied to previous buyers.
+     *
+     * @param int $productid WooCommerce product ID.
+     * @return void
+     * @throws dml_exception
+     */
+    protected function queue_product_reconciliation(int $productid): void {
+        global $DB;
+
+        $sql = "UPDATE {local_kopere_wpbridge_item}
+                   SET status = :pending,
+                       nextretry = 0,
+                       timemodified = :now
+                 WHERE productid = :productid
+                   AND status <> :removed
+                   AND orderid IN (
+                       SELECT id
+                         FROM {local_kopere_wpbridge_order}
+                        WHERE status = :completed
+                   )";
+
+        $DB->execute($sql, [
+            "pending" => "pending",
+            "now" => time(),
+            "productid" => $productid,
+            "removed" => "removed",
+            "completed" => "completed",
         ]);
     }
 }
