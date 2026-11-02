@@ -36,16 +36,14 @@ function xmldb_local_kopere_wpbridge_upgrade(int $oldversion): bool {
 
     // Restore missing installation tables before running legacy field migrations.
     // Older or partially installed sites may not have all the bridge tables yet.
-    if ($oldversion < 2026110200) {
-        $installxml = __DIR__ . "/install.xml";
-        foreach ([
-            "local_kopere_wpbridge_map",
-            "local_kopere_wpbridge_order",
-            "local_kopere_wpbridge_item",
-        ] as $tablename) {
-            if (!$dbman->table_exists($tablename)) {
-                $dbman->install_one_table_from_xmldb_file($installxml, $tablename);
-            }
+    $installxml = __DIR__ . "/install.xml";
+    foreach ([
+        "local_kopere_wpbridge_map",
+        "local_kopere_wpbridge_order",
+        "local_kopere_wpbridge_item",
+    ] as $tablename) {
+        if (!$dbman->table_exists($tablename)) {
+            $dbman->install_one_table_from_xmldb_file($installxml, $tablename);
         }
     }
 
@@ -155,10 +153,6 @@ function xmldb_local_kopere_wpbridge_upgrade(int $oldversion): bool {
         );
 
         upgrade_plugin_savepoint(true, 2026100600, "local", "kopere_wpbridge");
-    }
-
-    if ($oldversion < 2026110200) {
-        upgrade_plugin_savepoint(true, 2026110200, "local", "kopere_wpbridge");
     }
 
     return true;
