@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die;
 
-$plugin->version = 2026101500;
-$plugin->release = '1.6.2';
+$plugin->version = 2026110200;
+$plugin->release = '1.6.3';
 $plugin->component = "local_kopere_wpbridge";
 $plugin->requires = 2022112800;
 $plugin->maturity = MATURITY_STABLE;

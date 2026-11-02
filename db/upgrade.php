@@ -47,7 +47,7 @@ function xmldb_local_kopere_wpbridge_upgrade(int $oldversion): bool {
         }
     }
 
-    if ($oldversion < 2026100600) {
+    if ($oldversion < 2026110200) {
         $ordertable = new xmldb_table("local_kopere_wpbridge_order");
         $customerid = new xmldb_field(
             "customerid",
@@ -152,7 +152,7 @@ function xmldb_local_kopere_wpbridge_upgrade(int $oldversion): bool {
             ]
         );
 
-        upgrade_plugin_savepoint(true, 2026100600, "local", "kopere_wpbridge");
+        upgrade_plugin_savepoint(true, 2026110200, "local", "kopere_wpbridge");
     }
 
     return true;
